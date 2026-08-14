@@ -56,15 +56,16 @@ async def main():
 
     print("\n--- 1. Normaler Betrieb (Sicherer Zustand) ---")
     res = await client.send_data(temp=45.0, press=1.0)
-    print(f"Resultat: {res.json()}\n")
+    print(f"Resultat: {res.model_dump_json()}\n")  # <- Hier geändert
 
     print("--- 2. Kritische Werte (KI erkennt Gefahr) ---")
     res = await client.send_data(temp=120.0, press=2.5)
-    print(f"Resultat: {res.json()}\n")
+    print(f"Resultat: {res.model_dump_json()}\n")  # <- Hier geändert
 
     print("--- 3. Server-Verzögerung (Client erzwingt Timeout-Schutz) ---")
     res = await client.send_data(temp=45.0, press=1.0, force_timeout=True)
-    print(f"Resultat: {res.json()}\n")
+    print(f"Resultat: {res.model_dump_json()}\n")  # <- Hier geändert
+
 
 if __name__ == "__main__":
     asyncio.run(main())
