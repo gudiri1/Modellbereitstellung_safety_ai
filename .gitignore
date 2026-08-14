@@ -1,0 +1,9 @@
+# Virtuelle Umgebung ignorieren
+venv/
+
+# Python-Zwischenspeicher (Cache) ignorieren
+__pycache__/
+.pytest_cache/
+
+# VS Code Einstellungen ignorieren
+.vscode/
