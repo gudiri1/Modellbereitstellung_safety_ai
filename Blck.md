@@ -1,3 +1,4 @@
+```mermaid
 classDiagram
     class Gesamtsystem {
         +Lokales_Steuergerat
@@ -23,3 +24,5 @@ classDiagram
     Gesamtsystem *-- Remote_Infrastruktur
     Lokales_Steuergerat *-- Python_Runtime
     Remote_Infrastruktur *-- KI_Modell_vLLM
+```
+
