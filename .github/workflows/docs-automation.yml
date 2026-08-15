@@ -1,0 +1,110 @@
+name: Auto-Generate UML Diagrams
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-python-version: '3.11'
+
+    - name: Install Dependencies
+      run: |
+        pip install pylint
+
+    - name: Generate Class Diagram (PlantUML/Mermaid format)
+      run: |
+        # pyreverse analysiert alle Python-Dateien im aktuellen Ordner
+        pyreverse -o mmd -p Modellbereitstellung_safety_ai .
+        # Benennt die generierte Datei um, damit sie zu Ihrem Projekt passt
+        mv classes_Modellbereitstellung_safety_ai.mmd class_diagram.mmd
+
+    - name: Assemble README / Documentation
+      run: |
+        # Hier fügen wir das automatisch generierte Klassendiagramm 
+        # und Ihre 3 manuell definierten Architekturdiagramme in die Blck.md zusammen
+        echo "# Systemdokumentation" > Blck.md
+        
+        echo "## 1. Klassendiagramm (Automatisch aus Quellcode generiert)" >> Blck.md
+        echo "\`\`\`mermaid" >> Blck.md
+        cat class_diagram.mmd >> Blck.md
+        echo "\`\`\`" >> Blck.md
+
+        echo "## 2. Internes Blockdiagramm (Signalfluss)" >> Blck.md
+        echo "\`\`\`mermaid" >> Blck.md
+        echo "flowchart TB" >> Blck.md
+        echo "    subgraph local [Lokales System]" >> Blck.md
+        echo "        sensor[Sensoren]" >> Blck.md
+        echo "        python[Python Client]" >> Blck.md
+        echo "        fallback[Safe State Relais]" >> Blck.md
+        echo "    end" >> Blck.md
+        echo "    subgraph cloud [Cloud Server]" >> Blck.md
+        echo "        gateway[API Gateway]" >> Blck.md
+        echo "        model[KI Modell]" >> Blck.md
+        echo "    end" >> Blck.md
+        echo "    sensor -- Sensor-Daten --> python" >> Blck.md
+        echo "    python -- HTTPS / JSON --> gateway" >> Blck.md
+        echo "    gateway -- Inferenz-Request --> model" >> Blck.md
+        echo "    python -- Not-Aus Signal --> fallback" >> Blck.md
+        echo "\`\`\`" >> Blck.md
+
+        echo "## 3. Sequenzdiagramm (Timeout & Fallback)" >> Blck.md
+        echo "\`\`\`mermaid" >> Blck.md
+        echo "sequenceDiagram" >> Blck.md
+        echo "    autonumber" >> Blck.md
+        echo "    participant S as Sensor / Anlage" >> Blck.md
+        echo "    participant C as Lokaler Python Client" >> Blck.md
+        echo "    participant K as Remote KI-Server" >> Blck.md
+        echo "    S->>C: Sende aktuelle Messwerte (z.B. Temp=45°C)" >> Blck.md
+        echo "    Note over C: Input-Validierung via Pydantic" >> Blck.md
+        echo "    C->>K: HTTP POST /v1/analyze (Starte Timer: t=0.0s)" >> Blck.md
+        echo "    Note over K: Server blockiert / Netzwerk-Latenz..." >> Blck.md
+        echo "    Note over C: Timer läuft ab (t=1.0s)<br/>Strikter Timeout erreicht!" >> Blck.md
+        echo "    Note over C: C bricht Verbindung autonom ab" >> Blck.md
+        echo "    C->>C: Aktiviere _trigger_safe_state()" >> Blck.md
+        echo "    C->>S: Notfall-Kommando: Fahre Anlage in sicheren Zustand!" >> Blck.md
+        echo "    opt Späte Antwort vom Server" >> Blck.md
+        echo "        K--xC: Antwort (wird vom Client ignoriert/abgewiesen)" >> Blck.md
+        echo "    end" >> Blck.md
+        echo "\`\`\`" >> Blck.md
+
+        echo "## 4. Zustandsdiagramm (Safety States)" >> Blck.md
+        echo "\`\`\`mermaid" >> Blck.md
+        echo "stateDiagram-v2" >> Blck.md
+        echo "    [*] --> Initialisierung" >> Blck.md
+        echo "    Initialisierung --> Normalbetrieb : Selbsttest erfolgreich" >> Blck.md
+        echo "    Initialisierung --> Sicherer_Zustand : Selbsttest fehlgeschlagen" >> Blck.md
+        echo "    state Normalbetrieb {" >> Blck.md
+        echo "        [*] --> Warte_auf_Daten" >> Blck.md
+        echo "        Warte_auf_Daten --> Sende_API_Request : Daten empfangen" >> Blck.md
+        echo "        Sende_API_Request --> Verarbeite_KI_Antwort : HTTP 200 OK" >> Blck.md
+        echo "    }" >> Blck.md
+        echo "    Normalbetrieb --> Sicherer_Zustand : Event: Timeout (1s)" >> Blck.md
+        echo "    Normalbetrieb --> Sicherer_Zustand : Event: API-Fehler (500/401)" >> Blck.md
+        echo "    Normalbetrieb --> Sicherer_Zustand : Event: Datenkorruption (Validation Error)" >> Blck.md
+        echo "    Normalbetrieb --> Kritischer_Eingriff : KI meldet \"status=RISK\"" >> Blck.md
+        echo "    Kritischer_Eingriff --> Normalbetrieb : Gefahr abgewendet" >> Blck.md
+        echo "    Kritischer_Eingriff --> Sicherer_Zustand : System reagiert nicht" >> Blck.md
+        echo "    state Sicherer_Zustand {" >> Blck.md
+        echo "        [*] --> Lokaler_Notbetrieb" >> Blck.md
+        echo "        Lokaler_Notbetrieb --> Regelabschaltung" >> Blck.md
+        echo "    }" >> Blck.md
+        echo "    Sicherer_Zustand --> [*] : System aus" >> Blck.md
+        echo "\`\`\`" >> Blck.md
+
+    - name: Commit and Push Changes
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@://github.com"
+        git add Blck.md
+        git diff-index --quiet HEAD || git commit -m "docs: Auto-update UML diagrams from Python source code [skip ci]"
+        git push
